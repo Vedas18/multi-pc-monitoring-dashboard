@@ -1,0 +1,26 @@
+{
+  "name": "multi-pc-monitoring-client",
+  "version": "1.0.0",
+  "description": "Client script for Multi-PC System Monitoring Dashboard",
+  "main": "client.js",
+  "scripts": {
+    "start": "node client.js",
+    "dev": "nodemon client.js"
+  },
+  "keywords": [
+    "monitoring",
+    "system",
+    "client",
+    "systeminformation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.12.1",
+    "dotenv": "^16.3.1",
+    "systeminformation": "^5.27.9"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
