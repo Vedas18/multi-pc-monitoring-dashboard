@@ -81,7 +81,7 @@ async function sendDataToServer(data) {
     try {
       log('info', `Sending data to server (attempt ${attempt}/${maxRetries})`);
       const response = await axios.post(CONFIG.SERVER_URL, data, {
-        timeout: 10000,
+        timeout: 40000,
         headers: { 'Content-Type': 'application/json', 'User-Agent': 'Multi-PC-Monitoring-Client/1.0.0' }
       });
 
