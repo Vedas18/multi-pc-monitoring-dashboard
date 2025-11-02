@@ -2,6 +2,12 @@ const si = require('systeminformation');
 const axios = require('axios');
 require('dotenv').config();
 
+// Wake up backend before starting main client logic
+axios.get('https://pc-monitoring-backend-yctj.onrender.com/api/systemdata/health')
+  .then(() => console.log("✅ Backend warmed up and ready"))
+  .catch(() => console.log("⚠️ Backend wake-up ping failed, continuing..."));
+
+
 /**
  * Multi-PC System Monitoring Client
  * 
