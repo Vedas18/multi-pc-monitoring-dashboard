@@ -11,13 +11,13 @@ axios.get('https://pc-monitoring-backend-yctj.onrender.com/api/systemdata/health
 /**
  * Multi-PC System Monitoring Client
  * 
- * Monitors CPU, RAM, Disk, OS, and sends data to backend every 5 seconds.
+ * Monitors CPU, RAM, Disk, OS, and sends data to backend every 60 seconds.
  */
 
 // Configuration
 const CONFIG = {
   SERVER_URL: process.env.SERVER_URL || 'http://localhost:5000/api/systemdata',
-  COLLECTION_INTERVAL: parseInt(process.env.COLLECTION_INTERVAL) || 5000,
+  COLLECTION_INTERVAL: parseInt(process.env.COLLECTION_INTERVAL) || 60000,
   MAX_RETRIES: parseInt(process.env.MAX_RETRIES) || 3,
   RETRY_DELAY: parseInt(process.env.RETRY_DELAY) || 5000,
   PC_ID: process.env.PC_ID || require('os').hostname(),
