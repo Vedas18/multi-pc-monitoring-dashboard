@@ -2,6 +2,12 @@ const si = require('systeminformation');
 const axios = require('axios');
 require('dotenv').config();
 
+// Wake up backend before starting main client logic
+axios.get('https://pc-monitoring-backend-yctj.onrender.com/api/systemdata/health')
+  .then(() => console.log("✅ Backend warmed up and ready"))
+  .catch(() => console.log("⚠️ Backend wake-up ping failed, continuing..."));
+
+
 /**
  * Multi-PC System Monitoring Client
  * 
@@ -81,7 +87,7 @@ async function sendDataToServer(data) {
     try {
       log('info', `Sending data to server (attempt ${attempt}/${maxRetries})`);
       const response = await axios.post(CONFIG.SERVER_URL, data, {
-        timeout: 10000,
+        timeout: 40000,
         headers: { 'Content-Type': 'application/json', 'User-Agent': 'Multi-PC-Monitoring-Client/1.0.0' }
       });
 
