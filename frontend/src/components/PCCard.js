@@ -9,6 +9,9 @@ import { systemDataAPI, dataUtils } from '../utils/api';
 const PCCard = ({ pcId, latestData }) => {
   const [historicalData, setHistoricalData] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
 
   // ✅ FIX 1: memoized function
   const fetchHistoricalData = useCallback(async () => {
