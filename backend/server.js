@@ -6,13 +6,16 @@ require('dotenv').config();
 // Import routes
 const systemDataRoutes = require('./routes/systemData');
 
+// ✅ Import model (REQUIRED for index sync)
+const SystemInfo = require('./models/SystemInfo');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors()); // Enable CORS for all routes
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -21,14 +24,19 @@ app.use((req, res, next) => {
 });
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/pc-monitoring';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => {
+.then(async () => {
   console.log('✅ Connected to MongoDB successfully');
+
+  // 🔥 IMPORTANT: Sync indexes (TTL, compound index)
+  await SystemInfo.syncIndexes();
+  console.log('📌 MongoDB indexes synced');
+
 })
 .catch((error) => {
   console.error('❌ MongoDB connection error:', error);
@@ -56,25 +64,17 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Multi-PC System Monitoring Dashboard API',
     version: '1.0.0',
-    endpoints: {
-      'POST /api/systemdata': 'Submit system data from client',
-      'GET /api/systemdata': 'Get latest and historical data',
-      'GET /api/systemdata/pcs': 'Get list of all PCs',
-      'GET /api/systemdata/health': 'Health check',
-      'DELETE /api/systemdata/cleanup': 'Clean up old data'
-    },
     timestamp: new Date().toISOString()
   });
 });
 
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
-    timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -90,61 +90,36 @@ app.use('*', (req, res) => {
 // Global error handler
 app.use((error, req, res, next) => {
   console.error('Global error handler:', error);
-  
   res.status(error.status || 500).json({
     success: false,
-    message: error.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    message: error.message || 'Internal server error'
   });
 });
 
 // Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Received SIGINT. Graceful shutdown...');
-  
+async function shutdown(signal) {
+  console.log(`\n🛑 ${signal} received. Shutting down gracefully...`);
   try {
     await mongoose.connection.close();
     console.log('📊 MongoDB connection closed');
     process.exit(0);
-  } catch (error) {
-    console.error('Error during shutdown:', error);
+  } catch (err) {
+    console.error('Shutdown error:', err);
     process.exit(1);
   }
-});
+}
 
-process.on('SIGTERM', async () => {
-  console.log('\n🛑 Received SIGTERM. Graceful shutdown...');
-  
-  try {
-    await mongoose.connection.close();
-    console.log('📊 MongoDB connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during shutdown:', error);
-    process.exit(1);
-  }
-});
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // Start server
 app.listen(PORT, () => {
   console.log(`
-🚀 Multi-PC System Monitoring Dashboard Backend Server
-📡 Server running on port ${PORT}
-🌐 API available at: http://localhost:${PORT}
-📊 MongoDB URI: ${MONGODB_URI}
-⏰ Started at: ${new Date().toISOString()}
+🚀 Multi-PC System Monitoring Backend
+📡 Port: ${PORT}
+🌐 Environment: ${process.env.NODE_ENV || 'production'}
+⏰ Started: ${new Date().toISOString()}
   `);
 });
 
 module.exports = app;
-
-
-
-// Connect to local MongoDB
-mongoose.connect('mongodb://127.0.0.1:27017/multiPC', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log("MongoDB connected"))
-.catch(err => console.error("MongoDB connection error:", err));
-

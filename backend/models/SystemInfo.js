@@ -1,120 +1,116 @@
 const mongoose = require('mongoose');
 
 /**
- * SystemInfo Schema for storing PC monitoring data
- * Each document represents a single data point from a PC
+ * SystemInfo Schema
+ * Stores monitoring data sent from client PCs
  */
-const systemInfoSchema = new mongoose.Schema({
-  // Unique identifier for each PC (can be hostname, MAC address, etc.)
-  pcId: {
-    type: String,
-    required: true,
-    index: true // Index for faster queries by PC ID
-  },
-  
-  // CPU usage percentage (0-100)
-  cpu: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 100
-  },
-  
-  // RAM usage percentage (0-100)
-  ram: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 100
-  },
-  
-  // Disk usage percentage (0-100)
-  disk: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 100
-  },
-  
-  // Operating system information
-  os: {
-    type: String,
-    required: true
-  },
-  
-  // System uptime in seconds
-  uptime: {
-    type: Number,
-    required: true,
-    min: 0
-  },
-  
-  // Timestamp when this data was created
-  createdAt: {
-    type: Date,
-    default: Date.now,
-    index: true // Index for time-based queries
-  }
-}, {
-  // Add timestamps for createdAt and updatedAt
-  timestamps: true
-});
+const systemInfoSchema = new mongoose.Schema(
+  {
+    // Unique PC identifier (hostname / custom ID)
+    pcId: {
+      type: String,
+      required: true,
+      trim: true
+    },
 
-// Compound index for efficient queries by PC ID and time
+    // CPU usage percentage
+    cpu: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100
+    },
+
+    // RAM usage percentage
+    ram: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100
+    },
+
+    // Disk usage percentage
+    disk: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100
+    },
+
+    // Operating system name
+    os: {
+      type: String,
+      required: true
+    },
+
+    // System uptime in seconds
+    uptime: {
+      type: Number,
+      required: true,
+      min: 0
+    }
+  },
+  {
+    timestamps: true // creates createdAt & updatedAt automatically
+  }
+);
+
+/* ================= INDEXES ================= */
+
+// Fast latest-PC dashboard queries
 systemInfoSchema.index({ pcId: 1, createdAt: -1 });
 
-// Index for cleanup queries (older than 24 hours)
-systemInfoSchema.index({ createdAt: 1 });
+// Auto-delete old records after 24 hours (TTL index)
+systemInfoSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 24 * 60 * 60 }
+);
+
+/* ================= STATIC METHODS ================= */
 
 /**
- * Static method to get latest data for all PCs
+ * Get latest data of all PCs (one record per PC)
  */
-systemInfoSchema.statics.getLatestData = function() {
+systemInfoSchema.statics.getLatestData = function () {
   return this.aggregate([
-    {
-      $sort: { pcId: 1, createdAt: -1 }
-    },
+    { $sort: { pcId: 1, createdAt: -1 } },
     {
       $group: {
         _id: '$pcId',
         latestData: { $first: '$$ROOT' }
       }
     },
-    {
-      $replaceRoot: { newRoot: '$latestData' }
-    }
+    { $replaceRoot: { newRoot: '$latestData' } }
   ]);
 };
 
 /**
- * Static method to get historical data for a specific PC (last 24 hours)
+ * Get historical data of a specific PC (last N hours)
  */
-systemInfoSchema.statics.getHistoricalData = function(pcId, hours = 24) {
-  const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
-  
+systemInfoSchema.statics.getHistoricalData = function (pcId, hours = 24) {
+  const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+
   return this.find({
-    pcId: pcId,
-    createdAt: { $gte: cutoffTime }
+    pcId,
+    createdAt: { $gte: cutoff }
   }).sort({ createdAt: 1 });
 };
 
 /**
- * Static method to get overview statistics (averages across all PCs)
+ * Overview statistics for dashboard
  */
-systemInfoSchema.statics.getOverviewStats = function() {
-  const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  
+systemInfoSchema.statics.getOverviewStats = function () {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
   return this.aggregate([
-    {
-      $match: { createdAt: { $gte: cutoffTime } }
-    },
+    { $match: { createdAt: { $gte: cutoff } } },
     {
       $group: {
         _id: null,
         avgCpu: { $avg: '$cpu' },
         avgRam: { $avg: '$ram' },
         avgDisk: { $avg: '$disk' },
-        totalPCs: { $addToSet: '$pcId' }
+        pcs: { $addToSet: '$pcId' }
       }
     },
     {
@@ -123,21 +119,10 @@ systemInfoSchema.statics.getOverviewStats = function() {
         avgCpu: { $round: ['$avgCpu', 2] },
         avgRam: { $round: ['$avgRam', 2] },
         avgDisk: { $round: ['$avgDisk', 2] },
-        totalPCs: { $size: '$totalPCs' }
+        totalPCs: { $size: '$pcs' }
       }
     }
   ]);
-};
-
-/**
- * Static method to clean up old data (older than specified hours)
- */
-systemInfoSchema.statics.cleanupOldData = function(hours = 24) {
-  const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
-  
-  return this.deleteMany({
-    createdAt: { $lt: cutoffTime }
-  });
 };
 
 module.exports = mongoose.model('SystemInfo', systemInfoSchema);
